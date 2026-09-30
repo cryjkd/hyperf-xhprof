@@ -98,13 +98,13 @@ final class CompareReport
   th.num { text-align: right; }
   tbody tr:nth-child(even) { background: rgba(255, 255, 255, .02); }
   tbody tr:hover { background: rgba(91, 140, 255, .06); }
-  .legend { margin: 6px 0 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
-  .legend summary { cursor: pointer; color: var(--accent-2); font-size: 12.5px; font-weight: 600; user-select: none; list-style: none; }
+  .legend { margin: 6px 0 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; }
+  .legend summary { cursor: pointer; color: var(--accent-2); font-size: 13px; font-weight: 600; user-select: none; list-style: none; }
   .legend summary::-webkit-details-marker { display: none; }
-  .legend-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 7px 22px; margin-top: 11px; }
-  .legend-item { display: flex; gap: 9px; font-size: 12px; line-height: 1.5; }
-  .lg-key { color: var(--accent-2); font-weight: 600; white-space: nowrap; }
-  .lg-val { color: var(--muted); }
+  .legend-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin-top: 12px; }
+  .legend-item { display: flex; flex-direction: column; gap: 2px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+  .lg-key { color: var(--accent-2); font-weight: 600; font-size: 12px; }
+  .lg-val { color: var(--muted); font-size: 12px; line-height: 1.55; }
 </style>
 </head>
 <body>
