@@ -1,0 +1,44 @@
+{
+    "name": "cryjkd/hyperf-xhprof",
+    "type": "library",
+    "description": "A coroutine-safe, xhprof-style performance profiler for Hyperf 2.2 and 3.1 (no C extension required).",
+    "keywords": [
+        "hyperf",
+        "swoole",
+        "profiler",
+        "performance",
+        "xhprof",
+        "flamegraph",
+        "analysis"
+    ],
+    "license": "MIT",
+    "require": {
+        "php": ">=7.4",
+        "hyperf/di": "^2.2 || ~3.1.0",
+        "hyperf/config": "^2.2 || ~3.1.0",
+        "psr/container": "^1.1 || ^2.0",
+        "psr/http-message": "^1.0 || ^2.0",
+        "psr/http-server-handler": "^1.0",
+        "psr/http-server-middleware": "^1.0"
+    },
+    "suggest": {
+        "hyperf/http-server": "Required to enable the HTTP auto-profiling middleware.",
+        "hyperf/command": "Required to enable the profiler command line tool.",
+        "hyperf/console": "Required to run the profiler command line tool."
+    },
+    "autoload": {
+        "psr-4": {
+            "Cryjkd\\HyperfXhprof\\": "src/"
+        }
+    },
+    "extra": {
+        "hyperf": {
+            "config": "Cryjkd\\HyperfXhprof\\ConfigProvider"
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "config": {
+        "sort-packages": true
+    }
+}
