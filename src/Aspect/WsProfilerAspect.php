@@ -15,7 +15,7 @@ use Cryjkd\HyperfXhprof\Annotation\ProfileWs;
  */
 final class WsProfilerAspect extends AbstractWsProfilerAspect
 {
-    public array $annotations = [
+    public $annotations = [
         ProfileWs::class,
     ];
 }

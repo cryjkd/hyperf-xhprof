@@ -7,7 +7,7 @@ namespace Cryjkd\HyperfXhprof\Aspect;
 use Cryjkd\HyperfXhprof\Profiler;
 use Cryjkd\HyperfXhprof\Report\ReportWriter;
 use Cryjkd\HyperfXhprof\Trace;
-use Hyperf\Di\Aop\AbstractAspect;
+use Hyperf\Di\Aop\AroundInterface;
 use Hyperf\Di\Aop\ProceedingJoinPoint;
 
 /**
@@ -17,9 +17,18 @@ use Hyperf\Di\Aop\ProceedingJoinPoint;
  * message is processed and saves the report afterwards. Extend it and set
  * `$classes` wildcards when you want to profile by class instead of using the
  * `#[ProfileWs]` attribute.
+ *
+ * NOTE: implements AroundInterface directly (instead of extending AbstractAspect)
+ * to avoid Hyperf 2.2 / 3.1 typed-property variance — see AbstractProfilerAspect.
  */
-abstract class AbstractWsProfilerAspect extends AbstractAspect
+abstract class AbstractWsProfilerAspect implements AroundInterface
 {
+    public $classes = [];
+
+    public $annotations = [];
+
+    public $priority = null;
+
     public function process(ProceedingJoinPoint $proceedingJoinPoint)
     {
         $name = $proceedingJoinPoint->className . '::' . $proceedingJoinPoint->methodName;

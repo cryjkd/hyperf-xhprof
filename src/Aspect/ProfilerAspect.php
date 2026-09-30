@@ -14,7 +14,7 @@ use Cryjkd\HyperfXhprof\Annotation\Profile;
  */
 final class ProfilerAspect extends AbstractProfilerAspect
 {
-    public array $annotations = [
+    public $annotations = [
         Profile::class,
     ];
 }
