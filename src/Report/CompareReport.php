@@ -95,22 +95,45 @@ final class CompareReport
   .mini-bar { height: 6px; border-radius: 3px; background: #0b0e17; overflow: hidden; margin-bottom: 3px; min-width: 60px; }
   .mini-fill { height: 100%; background: linear-gradient(90deg, #5b8cff, #38d39f); }
   .empty { color: var(--muted); padding: 20px; text-align: center; border: 1px dashed var(--border); border-radius: 10px; }
+  th.num { text-align: right; }
+  tbody tr:nth-child(even) { background: rgba(255, 255, 255, .02); }
+  tbody tr:hover { background: rgba(91, 140, 255, .06); }
+  .legend { margin: 6px 0 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
+  .legend summary { cursor: pointer; color: var(--accent-2); font-size: 12.5px; font-weight: 600; user-select: none; list-style: none; }
+  .legend summary::-webkit-details-marker { display: none; }
+  .legend-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 7px 22px; margin-top: 11px; }
+  .legend-item { display: flex; gap: 9px; font-size: 12px; line-height: 1.5; }
+  .lg-key { color: var(--accent-2); font-weight: 600; white-space: nowrap; }
+  .lg-val { color: var(--muted); }
 </style>
 </head>
 <body>
 <header>
-  <h1>HyperfXhprof Compare</h1>
-  <div class="sub">Select two or more profiles and compare their wall / cpu / memory and function-level breakdown</div>
+  <h1>HyperfXhprof 采样对比</h1>
+  <div class="sub">勾选两个及以上采样，对比墙钟 / CPU / 内存与函数级耗时 · 红色 = 最慢，绿色 = 最快</div>
 </header>
 <section>
-  <h2>Profiles</h2>
+  <h2>采样列表 Profiles</h2>
   <div class="toolbar">
-    <button id="compare-btn" type="button">Compare selected</button>
+    <button id="compare-btn" type="button">对比选中 Compare selected</button>
     <span id="count"></span>
   </div>
   <div id="list"></div>
 </section>
 <section>
+  <details class="legend" open>
+    <summary>对比说明（每个数据的中文解释）</summary>
+    <div class="legend-grid">
+      <div class="legend-item"><span class="lg-key">采样 ID</span><span class="lg-val">每次采样报告的唯一标识</span></div>
+      <div class="legend-item"><span class="lg-key">墙钟 Wall</span><span class="lg-val">本次请求/消息的总耗时（毫秒）</span></div>
+      <div class="legend-item"><span class="lg-key">CPU</span><span class="lg-val">CPU 时间（毫秒，Swoole 下为进程级近似值）</span></div>
+      <div class="legend-item"><span class="lg-key">峰值内存 Peak mem</span><span class="lg-val">本次采样观测到的最高内存</span></div>
+      <div class="legend-item"><span class="lg-key">函数数 Functions</span><span class="lg-val">被采样到的不同函数数量</span></div>
+      <div class="legend-item"><span class="lg-key">Δ（max−min）</span><span class="lg-val">同一函数在所选采样中最慢减最快</span></div>
+      <div class="legend-item"><span class="lg-key">红色 hi</span><span class="lg-val">该函数在所选采样里最慢</span></div>
+      <div class="legend-item"><span class="lg-key">绿色 lo</span><span class="lg-val">该函数在所选采样里最快</span></div>
+    </div>
+  </details>
   <div id="compare-out"></div>
 </section>
 <script>
@@ -149,7 +172,7 @@ function buildList() {
     link.target = '_blank';
     link.rel = 'noopener';
     link.className = 'pl-open';
-    link.textContent = 'open ↗';
+    link.textContent = '查看 ↗';
     row.appendChild(link);
     list.appendChild(row);
   });
@@ -165,25 +188,25 @@ function selected() {
 function compare() {
   var sel = selected();
   var count = document.getElementById('count');
-  count.textContent = sel.length + ' selected';
+  count.textContent = '已选 ' + sel.length + ' 个';
   var out = document.getElementById('compare-out');
   if (sel.length < 2) {
-    out.innerHTML = '<div class="empty">Select at least two profiles to compare.</div>';
+    out.innerHTML = '<div class="empty">请至少勾选两个采样进行对比。</div>';
     return;
   }
   out.innerHTML = renderComparison(sel);
 }
 
 function renderComparison(sel) {
-  var html = '<h3>Overview</h3><table><thead><tr><th>Metric</th>';
-  sel.forEach(function (p) { html += '<th>' + escHtml(shortId(p.id)) + '</th>'; });
+  var html = '<h3>总览 Overview</h3><table><thead><tr><th>指标 Metric</th>';
+  sel.forEach(function (p) { html += '<th class="num">' + escHtml(shortId(p.id)) + '</th>'; });
   html += '</tr></thead><tbody>';
 
   var metrics = [
-    ['Wall (ms)', function (p) { return ms(p.wall_us || 0); }, function (p) { return p.wall_us || 0; }],
+    ['墙钟 Wall (ms)', function (p) { return ms(p.wall_us || 0); }, function (p) { return p.wall_us || 0; }],
     ['CPU (ms)', function (p) { return ms(p.cpu_us || 0); }, function (p) { return p.cpu_us || 0; }],
-    ['Peak mem', function (p) { return fmtMem(p.peak_mem || 0); }, function (p) { return p.peak_mem || 0; }],
-    ['Functions', function (p) { return String((p.nodes || []).length); }, function (p) { return (p.nodes || []).length; }]
+    ['峰值内存 Peak mem', function (p) { return fmtMem(p.peak_mem || 0); }, function (p) { return p.peak_mem || 0; }],
+    ['函数数 Functions', function (p) { return String((p.nodes || []).length); }, function (p) { return (p.nodes || []).length; }]
   ];
 
   metrics.forEach(function (m) {
@@ -210,9 +233,9 @@ function renderComparison(sel) {
 
   var names = Object.keys(funcs).sort(function (a, b) { return funcs[b].max - funcs[a].max; });
 
-  html += '<h3>Functions</h3><table><thead><tr><th>Function</th>';
-  sel.forEach(function (p) { html += '<th>' + escHtml(shortId(p.id)) + '</th>'; });
-  html += '<th>Δ (max−min)</th></tr></thead><tbody>';
+  html += '<h3>函数对比 Functions</h3><table><thead><tr><th>函数 Function</th>';
+  sel.forEach(function (p) { html += '<th class="num">' + escHtml(shortId(p.id)) + '</th>'; });
+  html += '<th class="num">Δ (max−min)</th></tr></thead><tbody>';
 
   names.slice(0, 200).forEach(function (name) {
     var f = funcs[name];

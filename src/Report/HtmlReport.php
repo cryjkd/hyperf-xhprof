@@ -36,13 +36,13 @@ final class HtmlReport
     private function renderMeta(array $data): string
     {
         $cells = [
-            ['Request', $this->esc((string) ($data['method'] ?? '')) . ' ' . $this->esc((string) ($data['uri'] ?? ''))],
-            ['Wall time', $this->ms((int) ($data['wall_us'] ?? 0))],
-            ['CPU time', $this->ms((int) ($data['cpu_us'] ?? 0))],
-            ['Peak memory', $this->bytes((int) ($data['peak_mem'] ?? 0))],
-            ['Functions', (string) count($data['nodes'] ?? [])],
-            ['Max depth', (string) ($data['max_depth'] ?? 0)],
-            ['Started', $this->esc(date('Y-m-d H:i:s', (int) ($data['started_at'] ?? 0)))],
+            ['请求 Request', $this->esc((string) ($data['method'] ?? '')) . ' ' . $this->esc((string) ($data['uri'] ?? ''))],
+            ['总耗时 Wall', $this->ms((int) ($data['wall_us'] ?? 0))],
+            ['CPU 时间', $this->ms((int) ($data['cpu_us'] ?? 0))],
+            ['峰值内存', $this->bytes((int) ($data['peak_mem'] ?? 0))],
+            ['函数数', (string) count($data['nodes'] ?? [])],
+            ['最大深度', (string) ($data['max_depth'] ?? 0)],
+            ['开始时间', $this->esc(date('Y-m-d H:i:s', (int) ($data['started_at'] ?? 0)))],
         ];
 
         $html = '';
@@ -215,28 +215,54 @@ final class HtmlReport
   .flame-bar button:hover { border-color: var(--accent); }
   #flame-bread { color: var(--muted); font-size: 12px; }
   .flame-tip { display: none; position: absolute; z-index: 10; background: #0b0e17; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; line-height: 1.6; pointer-events: none; box-shadow: 0 6px 24px rgba(0,0,0,.4); white-space: nowrap; }
+  /* Legend */
+  .legend { margin: 6px 0 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
+  .legend summary { cursor: pointer; color: var(--accent-2); font-size: 12.5px; font-weight: 600; user-select: none; list-style: none; }
+  .legend summary::-webkit-details-marker { display: none; }
+  .legend-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 7px 22px; margin-top: 11px; }
+  .legend-item { display: flex; gap: 9px; font-size: 12px; line-height: 1.5; }
+  .lg-key { color: var(--accent-2); font-weight: 600; white-space: nowrap; }
+  .lg-val { color: var(--muted); }
+  /* Table polish */
+  tbody tr:nth-child(even) { background: rgba(255, 255, 255, .02); }
+  tbody tr:hover { background: rgba(91, 140, 255, .06); }
+  th.num { text-align: right; }
 </style>
 </head>
 <body>
 <header>
-  <h1>HyperfXhprof Profiler</h1>
-  <div class="sub">xhprof-style wall / cpu / memory breakdown — sorted by inclusive wall time</div>
+  <h1>HyperfXhprof 性能分析报告</h1>
+  <div class="sub">墙钟 / CPU / 内存逐方法分解 · 默认按含子调用墙钟时间降序 · 列头可点击排序</div>
 </header>
 <div class="cards">__META__</div>
 <section>
   <h2>Flat profile</h2>
+  <details class="legend" open>
+    <summary>字段说明（每个数据的中文解释）</summary>
+    <div class="legend-grid">
+      <div class="legend-item"><span class="lg-key">函数 Function</span><span class="lg-val">被采样的方法，格式为「类名::方法名」</span></div>
+      <div class="legend-item"><span class="lg-key">调用次数 Calls</span><span class="lg-val">该方法在本次请求中被调用的次数</span></div>
+      <div class="legend-item"><span class="lg-key">含子调用占比 Incl %</span><span class="lg-val">该方法含子调用的总耗时 ÷ 本次请求总耗时</span></div>
+      <div class="legend-item"><span class="lg-key">含子调用墙钟 Incl wall</span><span class="lg-val">方法自身 + 其内部调用所有方法的总耗时（毫秒）</span></div>
+      <div class="legend-item"><span class="lg-key">自身墙钟 Excl wall</span><span class="lg-val">仅方法自身执行的耗时，不含子调用（毫秒）</span></div>
+      <div class="legend-item"><span class="lg-key">含子调用 CPU Incl cpu</span><span class="lg-val">方法自身 + 其内部调用的 CPU 时间（毫秒）</span></div>
+      <div class="legend-item"><span class="lg-key">自身 CPU Excl cpu</span><span class="lg-val">仅方法自身消耗的 CPU 时间（毫秒）</span></div>
+      <div class="legend-item"><span class="lg-key">内存增量 Mem Δ</span><span class="lg-val">方法结束时相对进入时的内存变化</span></div>
+      <div class="legend-item"><span class="lg-key">峰值内存 Peak mem</span><span class="lg-val">方法执行期间观测到的最高内存</span></div>
+    </div>
+  </details>
   <table id="flat">
     <thead>
       <tr>
         <th onclick="sortTable('flat',0)">Function</th>
-        <th onclick="sortTable('flat',1)">Calls</th>
+        <th class="num" onclick="sortTable('flat',1)">Calls</th>
         <th onclick="sortTable('flat',2)">Incl %</th>
-        <th onclick="sortTable('flat',3)">Incl wall</th>
-        <th onclick="sortTable('flat',4)">Excl wall</th>
-        <th onclick="sortTable('flat',5)">Incl cpu</th>
-        <th onclick="sortTable('flat',6)">Excl cpu</th>
-        <th onclick="sortTable('flat',7)">Mem Δ</th>
-        <th onclick="sortTable('flat',8)">Peak mem</th>
+        <th class="num" onclick="sortTable('flat',3)">Incl wall</th>
+        <th class="num" onclick="sortTable('flat',4)">Excl wall</th>
+        <th class="num" onclick="sortTable('flat',5)">Incl cpu</th>
+        <th class="num" onclick="sortTable('flat',6)">Excl cpu</th>
+        <th class="num" onclick="sortTable('flat',7)">Mem Δ</th>
+        <th class="num" onclick="sortTable('flat',8)">Peak mem</th>
       </tr>
     </thead>
     <tbody>
