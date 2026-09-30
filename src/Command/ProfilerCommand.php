@@ -18,7 +18,16 @@ use Symfony\Component\Console\Input\InputArgument;
  */
 class ProfilerCommand extends Command
 {
-    protected ?string $name = 'profiler';
+    /**
+     * Set the command name through the constructor instead of redeclaring the
+     * `$name` property: Hyperf 2.2 declares it untyped while 3.1 declares it
+     * `?string`, so a typed/untyped redeclaration would trip PHP's typed-property
+     * invariance check on one of the two lines.
+     */
+    public function __construct()
+    {
+        parent::__construct('profiler');
+    }
 
     protected function configure()
     {
