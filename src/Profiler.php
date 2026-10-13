@@ -192,9 +192,15 @@ final class Profiler
             return self::$config ?? [];
         }
 
-        self::$configLoaded = true;
         $config = Context::config('profiler');
-        self::$config = is_array($config) ? $config : [];
+        if (! is_array($config)) {
+            // Config not loaded/available yet: do not cache an empty result,
+            // retry on the next call instead of locking it in permanently.
+            return [];
+        }
+
+        self::$config = $config;
+        self::$configLoaded = true;
 
         return self::$config;
     }

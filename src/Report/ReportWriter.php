@@ -154,7 +154,7 @@ final class ReportWriter
             }
         }
 
-        file_put_contents(
+        $this->atomicWrite(
             $dir . DIRECTORY_SEPARATOR . 'index.html',
             (new CompareReport())->render($summaries)
         );
@@ -187,7 +187,7 @@ final class ReportWriter
         }
 
         $filename = 'compare-' . date('YmdHis') . '_' . bin2hex(random_bytes(3)) . '.html';
-        file_put_contents(
+        $this->atomicWrite(
             $dir . DIRECTORY_SEPARATOR . $filename,
             (new CompareReport())->render($summaries, array_column($summaries, 'id'))
         );
@@ -211,7 +211,17 @@ final class ReportWriter
             return;
         }
 
-        $files = (array) glob($dir . DIRECTORY_SEPARATOR . '*.json');
+        $this->pruneFiles((array) glob($dir . DIRECTORY_SEPARATOR . '*.json'), $keep, true);
+        $this->pruneFiles((array) glob($dir . DIRECTORY_SEPARATOR . 'compare-*.html'), $keep, false);
+    }
+
+    /**
+     * Delete the oldest files (by mtime), keeping the newest $keep.
+     *
+     * @param array<int, string> $files
+     */
+    private function pruneFiles(array $files, int $keep, bool $withHtmlSibling): void
+    {
         if (count($files) <= $keep) {
             return;
         }
@@ -219,7 +229,24 @@ final class ReportWriter
         usort($files, static fn (string $a, string $b): int => filemtime($a) <=> filemtime($b));
         foreach (array_slice($files, 0, count($files) - $keep) as $file) {
             @unlink($file);
-            @unlink(substr($file, 0, -5) . '.html');
+            if ($withHtmlSibling) {
+                @unlink(substr($file, 0, -5) . '.html');
+            }
+        }
+    }
+
+    /**
+     * Write a file atomically (temp file + rename) so concurrent coroutines
+     * never leave a half-written file (e.g. the shared index.html).
+     */
+    private function atomicWrite(string $file, string $content): void
+    {
+        $tmp = $file . '.' . bin2hex(random_bytes(4)) . '.tmp';
+        if (@file_put_contents($tmp, $content) === false) {
+            return;
+        }
+        if (! @rename($tmp, $file)) {
+            @unlink($tmp);
         }
     }
 }

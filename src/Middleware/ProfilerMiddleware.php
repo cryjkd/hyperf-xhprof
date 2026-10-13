@@ -35,6 +35,8 @@ final class ProfilerMiddleware implements MiddlewareInterface
                 Profiler::suspend();
                 try {
                     $profileId = (new ReportWriter())->save($trace);
+                } catch (\Throwable $throwable) {
+                    // Profiling must never break the HTTP request flow.
                 } finally {
                     Profiler::resume();
                 }

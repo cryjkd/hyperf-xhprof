@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Cryjkd\HyperfXhprof\Command;
 
+use Cryjkd\HyperfXhprof\Report\Advisor;
 use Cryjkd\HyperfXhprof\Report\ReportWriter;
 use Hyperf\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -120,6 +121,8 @@ class ProfilerCommand extends Command
 
         $this->table(['Function', 'Calls', 'Incl (ms)', 'Excl (ms)'], $rows);
 
+        $this->renderAdvice((new Advisor())->analyze($data));
+
         return self::SUCCESS;
     }
 
@@ -227,6 +230,24 @@ class ProfilerCommand extends Command
         $this->info('Index rebuilt: ' . $writer->directory() . DIRECTORY_SEPARATOR . 'index.html');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @param array<int, array{level:string, title:string, detail:string}> $findings
+     */
+    private function renderAdvice(array $findings): void
+    {
+        $this->line('');
+        $this->line('优化建议 / 异常指标：');
+        $labels = ['critical' => '严重', 'warning' => '警告', 'info' => '提示'];
+        foreach ($findings as $finding) {
+            $level = (string) ($finding['level'] ?? 'info');
+            $label = $labels[$level] ?? '提示';
+            $this->line(sprintf('[%s] %s：%s', $label, $finding['title'] ?? '', $finding['detail'] ?? ''));
+            foreach (($finding['suggestions'] ?? []) as $tip) {
+                $this->line('      · ' . $tip);
+            }
+        }
     }
 
     private function shortId(string $id): string

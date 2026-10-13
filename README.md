@@ -5,6 +5,7 @@
 - 方法级火焰图式**调用树** + **扁平统计表**（类似 xhprof 的 Inclusive/Exclusive 指标）
 - 可交互 **SVG 火焰图**（hover 提示、点击逐层缩放）
 - **多报告勾选对比**（自选多个采样，一键并排对比耗时/CPU/内存）
+- **自动优化建议 / 异常指标**（慢方法、CPU 密集、内存增长、N+1、深调用栈、阻塞等待）
 - 每请求自动触发（Header / Query / 采样率）或手动 `Profiler::start()/stop()`
 - 输出自包含 HTML 报告 + JSON 原始数据 + CLI 查看命令
 - 基于 Hyperf AOP，状态存于协程上下文，可安全跑在 Swoole 常驻进程
@@ -52,6 +53,7 @@ return [
         'max_depth' => 0,       // 调用树深度上限（0=不限制）
     ],
     'exclude' => [],            // 永远跳过的类::方法 / 通配符
+    'analyze' => [],            // 优化建议阈值（覆盖默认值，见 publish/profiler.php）
     'storage' => [
         'path' => BASE_PATH . '/runtime/profiler',
         'keep' => 100,
@@ -238,6 +240,12 @@ php bin/hyperf.php profiler index           # 重建 index.html（对比页）
 - **Call tree**：按调用嵌套展开的火焰图式调用树
 - **Flame graph**：可交互 SVG 火焰图 —— hover 显示耗时/占比，点击某一帧可逐层放大，`Reset zoom` 还原
 - **Summary**：本次请求的 URI、总耗时、CPU、峰值内存、函数数、最大深度
+- **优化建议 / 异常指标**：自动标记慢方法、CPU 密集、内存增长、高频调用（N+1）、深调用栈、阻塞等待等，按「严重 / 警告 / 提示」分级，每条附具体优化方案
+- **AI 提示词**：一键把采样数据整理成结构化提示词，复制到任意 AI 对话（DeepSeek / Kimi / ChatGPT 等）中做深入分析
+
+### AI 提示词
+
+报告页的「复制提示词」按钮会把本次采样整理成结构化提示词（采样概况 + Top20 函数 + 输出格式要求），复制后贴到任意 AI 对话即可。提示词在报告里也可以展开「查看 / 编辑提示词」自行修改。
 
 ### 多报告对比
 

@@ -127,6 +127,13 @@ final class Trace
             return;
         }
 
+        $index = count($this->stack) - 1;
+        if ($this->stack[$index]['name'] !== $name) {
+            // Guard against unbalanced begin()/end() (possible when the manual
+            // API is misused): never pop a frame that does not match the name.
+            return;
+        }
+
         $frame = array_pop($this->stack);
         --$this->depth;
 
@@ -202,7 +209,9 @@ final class Trace
         if ($this->config['collect']['cpu']) {
             $this->cpuUs = self::cpuUs() - $this->startedCpuUs;
         }
-        $this->peakMem = memory_get_peak_usage();
+        if ($this->config['collect']['memory']) {
+            $this->peakMem = memory_get_peak_usage();
+        }
     }
 
     public function hasData(): bool
@@ -291,11 +300,15 @@ final class Trace
     private static function matchPattern(string $pattern, string $name): bool
     {
         if (strpos($pattern, '*') !== false) {
-            $preg = str_replace(['*', '\\'], ['.*', '\\\\'], $pattern);
+            // Convert a glob pattern to an anchored regex. Escape every other
+            // regex metacharacter so class/method names are matched literally,
+            // and only `*` acts as a wildcard.
+            $quoted = preg_quote($pattern, '/');
+            $regex = str_replace('\*', '.*', $quoted);
 
-            return (bool) preg_match('/^' . $preg . '$/', $name);
+            return (bool) preg_match('/^' . $regex . '$/', $name);
         }
 
-        return strpos($name, $pattern) !== false;
+        return $name === $pattern;
     }
 }

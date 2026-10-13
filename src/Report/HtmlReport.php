@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Cryjkd\HyperfXhprof\Report;
 
+use Cryjkd\HyperfXhprof\Ai\PromptBuilder;
 use Cryjkd\HyperfXhprof\Trace;
 
 /**
@@ -19,12 +20,20 @@ final class HtmlReport
 
         $flatRows = $this->renderFlatRows($data['nodes'] ?? [], $totalWallUs);
         $treeHtml = $this->renderTreeHtml($data['tree'] ?? [], $totalWallUs);
+        $adviceHtml = $this->renderAdvice((new Advisor())->analyze($data));
+
+        $aiPrompt = json_encode(
+            (new PromptBuilder())->buildPrompt($data),
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG
+        );
 
         return str_replace(
-            ['__TITLE__', '__META__', '__FLAT__', '__TREE__', '__FLAME_DATA__'],
+            ['__TITLE__', '__META__', '__ADVICE__', '__AI_PROMPT__', '__FLAT__', '__TREE__', '__FLAME_DATA__'],
             [
                 'Profile ' . $this->esc((string) $data['id']),
                 $this->renderMeta($data),
+                $adviceHtml,
+                (string) $aiPrompt,
                 $flatRows,
                 $treeHtml,
                 json_encode($data['tree'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG),
@@ -52,6 +61,43 @@ final class HtmlReport
         }
 
         return $html;
+    }
+
+    /**
+     * @param array<int, array{level:string, title:string, detail:string}> $findings
+     */
+    private function renderAdvice(array $findings): string
+    {
+        $html = '';
+        foreach ($findings as $finding) {
+            $level = (string) ($finding['level'] ?? 'info');
+            $tipsHtml = '';
+            $suggestions = is_array($finding['suggestions'] ?? null) ? $finding['suggestions'] : [];
+            if ($suggestions !== []) {
+                $tipsHtml = '<ul class="adv-tips">';
+                foreach ($suggestions as $tip) {
+                    $tipsHtml .= '<li>' . $this->esc((string) $tip) . '</li>';
+                }
+                $tipsHtml .= '</ul>';
+            }
+
+            $html .= '<div class="adv-item level-' . $this->esc($level) . '">'
+                . '<span class="adv-badge">' . $this->esc($this->levelLabel($level)) . '</span>'
+                . '<div class="adv-body">'
+                . '<div class="adv-title">' . $this->esc((string) ($finding['title'] ?? '')) . '</div>'
+                . '<div class="adv-detail">' . $this->esc((string) ($finding['detail'] ?? '')) . '</div>'
+                . $tipsHtml
+                . '</div></div>';
+        }
+
+        return $html;
+    }
+
+    private function levelLabel(string $level): string
+    {
+        $labels = ['critical' => '严重', 'warning' => '警告', 'info' => '提示'];
+
+        return $labels[$level] ?? '提示';
     }
 
     private function renderFlatRows(array $nodes, int $totalWallUs): string
@@ -129,14 +175,15 @@ final class HtmlReport
     private function bytes(int $bytes): string
     {
         $units = ['B', 'KB', 'MB', 'GB'];
-        $value = (float) $bytes;
+        $sign = $bytes < 0 ? -1 : 1;
+        $value = (float) abs($bytes);
         $unit = 0;
         while ($value >= 1024 && $unit < count($units) - 1) {
             $value /= 1024;
             ++$unit;
         }
 
-        return $this->num($value, 2) . ' ' . $units[$unit];
+        return $this->num($value * $sign, 2) . ' ' . $units[$unit];
     }
 
     private const SHELL = <<<'HTML'
@@ -223,6 +270,32 @@ final class HtmlReport
   .legend-item { display: flex; flex-direction: column; gap: 2px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
   .lg-key { color: var(--accent-2); font-weight: 600; font-size: 12px; }
   .lg-val { color: var(--muted); font-size: 12px; line-height: 1.55; }
+  /* Advice */
+  .advice { display: flex; flex-direction: column; gap: 8px; }
+  .adv-item { display: flex; align-items: flex-start; gap: 10px; background: var(--panel); border: 1px solid var(--border); border-left-width: 4px; border-radius: 8px; padding: 10px 12px; }
+  .adv-item.level-critical { border-left-color: #ff5b5b; }
+  .adv-item.level-warning { border-left-color: #ffb454; }
+  .adv-item.level-info { border-left-color: var(--accent-2); }
+  .adv-badge { flex-shrink: 0; font-size: 11px; font-weight: 650; padding: 2px 8px; border-radius: 20px; color: #0b0e17; }
+  .level-critical .adv-badge { background: #ff5b5b; }
+  .level-warning .adv-badge { background: #ffb454; }
+  .level-info .adv-badge { background: #38d39f; }
+  .adv-body { min-width: 0; }
+  .adv-title { font-weight: 600; word-break: break-all; }
+  .adv-detail { color: var(--muted); font-size: 12px; margin-top: 2px; line-height: 1.5; }
+  .adv-tips { margin: 6px 0 0; padding-left: 18px; color: var(--accent-2); font-size: 12px; line-height: 1.6; }
+  .adv-tips li { margin: 2px 0; }
+  /* AI 提示词 */
+  .ai-bar { display: flex; align-items: center; gap: 10px; margin: 12px 0 10px; flex-wrap: wrap; }
+  .ai-bar button { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 13px; }
+  .ai-bar button:hover { border-color: var(--accent); }
+  .ai-status { color: var(--muted); font-size: 12px; }
+  .ai-status.ai-ok { color: var(--accent-2); }
+  .ai-status.ai-warn { color: #ffb454; }
+  .ai-prompt-details { margin: 0 0 12px; }
+  .ai-prompt-details summary { cursor: pointer; color: var(--accent-2); font-size: 13px; user-select: none; list-style: none; }
+  .ai-prompt-details summary::-webkit-details-marker { display: none; }
+  .ai-prompt-details textarea { width: 100%; min-height: 180px; box-sizing: border-box; background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 10px; font: 12px/1.6 ui-monospace, Consolas, monospace; resize: vertical; }
   /* Table polish */
   tbody tr:nth-child(even) { background: rgba(255, 255, 255, .02); }
   tbody tr:hover { background: rgba(91, 140, 255, .06); }
@@ -235,6 +308,30 @@ final class HtmlReport
   <div class="sub">墙钟 / CPU / 内存逐方法分解 · 默认按含子调用墙钟时间降序 · 列头可点击排序</div>
 </header>
 <div class="cards">__META__</div>
+<section>
+  <h2>优化建议 / 异常指标</h2>
+  <details class="legend">
+    <summary>判定规则说明</summary>
+    <div class="legend-grid">
+      <div class="legend-item"><span class="lg-key">严重 Critical</span><span class="lg-val">单个方法自身耗时占总请求 50% 以上，或请求总耗时达到阈值的 3 倍以上</span></div>
+      <div class="legend-item"><span class="lg-key">警告 Warning</span><span class="lg-val">指标超过阈值：慢方法 / CPU 密集 / 高频调用 / 内存增长 / 深调用栈 / 阻塞等待等</span></div>
+      <div class="legend-item"><span class="lg-key">提示 Info</span><span class="lg-val">未发现明显瓶颈时的正向提示</span></div>
+      <div class="legend-item"><span class="lg-key">慢方法</span><span class="lg-val">自身墙钟超过 slow_excl_ms，或占总耗时超过 slow_pct</span></div>
+      <div class="legend-item"><span class="lg-key">高频调用</span><span class="lg-val">方法被调用次数超过 calls 阈值，常见于循环里重复查询（N+1）</span></div>
+      <div class="legend-item"><span class="lg-key">阻塞等待</span><span class="lg-val">墙钟远大于 CPU，时间花在 I/O、网络、锁或 sleep 上</span></div>
+      <div class="legend-item"><span class="lg-key">优化方案</span><span class="lg-val">每条建议附带 2~3 条可落地措施（缓存 / 批量查询 / 并发 / 流式处理等）</span></div>
+    </div>
+  </details>
+  <div class="advice">__ADVICE__</div>
+  <div class="ai-bar">
+    <button id="ai-copy" type="button">复制提示词</button>
+    <span id="ai-status" class="ai-status"></span>
+  </div>
+  <details class="ai-prompt-details">
+    <summary>查看 / 编辑提示词</summary>
+    <textarea id="ai-prompt" spellcheck="false"></textarea>
+  </details>
+</section>
 <section>
   <h2>Flat profile</h2>
   <details class="legend" open>
@@ -289,11 +386,14 @@ function sortTable(id, col) {
   var prevDir = table.getAttribute('data-dir');
   var dir = (prevCol === String(col) && prevDir === 'desc') ? 1 : -1;
   rows.sort(function (a, b) {
-    var av = parseFloat(a.cells[col].getAttribute('data-value'));
-    var bv = parseFloat(b.cells[col].getAttribute('data-value'));
-    if (isNaN(av)) { av = 0; }
-    if (isNaN(bv)) { bv = 0; }
-    return (av - bv) * dir;
+    var av = a.cells[col].getAttribute('data-value');
+    var bv = b.cells[col].getAttribute('data-value');
+    var an = parseFloat(av);
+    var bn = parseFloat(bv);
+    if (isNaN(an) || isNaN(bn)) {
+      return String(a.cells[col].textContent).localeCompare(String(b.cells[col].textContent)) * dir;
+    }
+    return (an - bn) * dir;
   });
   rows.forEach(function (r) { tbody.appendChild(r); });
   table.setAttribute('data-col', String(col));
@@ -432,6 +532,35 @@ function sortTable(id, col) {
   });
 
   render(rootNodes, sumWall(rootNodes));
+})();
+</script>
+<script>
+(function () {
+  var AI_PROMPT = __AI_PROMPT__;
+  var promptEl = document.getElementById('ai-prompt');
+  var statusEl = document.getElementById('ai-status');
+  if (!promptEl) { return; }
+  promptEl.value = AI_PROMPT;
+
+  function setStatus(msg, kind) {
+    statusEl.textContent = msg;
+    statusEl.className = 'ai-status' + (kind ? ' ai-' + kind : '');
+  }
+
+  function fallbackCopy(text) {
+    promptEl.select();
+    document.execCommand('copy');
+    setStatus('提示词已复制（已选中文本，可直接 Ctrl+C）', 'ok');
+  }
+
+  document.getElementById('ai-copy').addEventListener('click', function () {
+    var text = promptEl.value;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { setStatus('提示词已复制', 'ok'); }, function () { fallbackCopy(text); });
+    } else {
+      fallbackCopy(text);
+    }
+  });
 })();
 </script>
 </body>

@@ -43,11 +43,16 @@ abstract class AbstractWsProfilerAspect implements AroundInterface
             Profiler::start('ws:' . $name, 'WS');
         }
 
-        Profiler::begin($name);
+        $record = Profiler::shouldRecord($name);
+        if ($record) {
+            Profiler::begin($name);
+        }
         try {
             return $proceedingJoinPoint->process();
         } finally {
-            Profiler::end($name);
+            if ($record) {
+                Profiler::end($name);
+            }
             if (! $alreadyProfiling) {
                 $trace = Profiler::stop();
                 if ($trace instanceof Trace && $trace->hasData()) {
